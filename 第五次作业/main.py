@@ -20,15 +20,14 @@ train_data = torchvision.datasets.MNIST(root=r'C:\Users\Administrator\Anaconda3\
 # 地址前加r是因为\u对python来说是特殊字符，所以加一个r代表原生字符
 test_data = torchvision.datasets.MNIST(root=r'C:\Users\Administrator\Anaconda3\Lib\site-packages\torchvision\datasets',download=True,train=False, transform=transform)
 # 每一个数据都是元组，第一个位置为图片，第二个位置为标签
-Loader_train = torch.utils.data.DataLoader(train_data, batch_size=200,
+Loader_train = torch.utils.data.DataLoader(train_data, batch_size=100,
                                            sampler=sampler.SubsetRandomSampler(range(10000)))
-Loader_val = torch.utils.data.DataLoader(train_data, batch_size=200,
+Loader_val = torch.utils.data.DataLoader(train_data, batch_size=100,
                                          sampler=sampler.SubsetRandomSampler(range(10000, 20000)))
-Loader_test = torch.utils.data.DataLoader(test_data, batch_size=200,
+Loader_test = torch.utils.data.DataLoader(test_data, batch_size=100,
                                           sampler=sampler.SubsetRandomSampler(range(5000)))
 data_test_image,data_test_label = train_data.data,train_data.targets
-plt.imshow(data_test_image)
-plt.show()
+
 # def big_image(input_tensor=None, out_size=None):
 #     '''
 #     对图片进行放缩，输入张量默认为3为（N,H,W），输出张量为三维（N,OUT_SIZE,OUT_SIZE）
@@ -72,6 +71,7 @@ class Alexnet_model(nn.Module):
         model = models.alexnet(pretrained=True)
         #model = models.squeezenet1_0()
         model.features[0] = nn.Conv2d(1, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2))
+        model.classifier[6] = nn.Linear(4096,10,bias=True)
         self.model = nn.Sequential(
             model,
             # nn.Conv2d(3, 32, kernel_size=3, stride=1,padding=1),
@@ -90,9 +90,6 @@ class Alexnet_model(nn.Module):
             # nn.ReLU(inplace=True),
             # nn.Dropout(p=0.5),
             # nn.Linear(300, 50, bias=True),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=0.5),
-            nn.Linear(1000, 10, bias=True)
         )
 
     def predict(self, mode='train', loader=None):
@@ -141,6 +138,6 @@ def fit(model=None, optimizer=None, learning_rate=1e-3, epochs=10, train=Loader_
 # vgg.predict(mode='test',x=test_images,y=test_labels)
 
 alexnet = Alexnet_model()
-optimizer = optim.Adam(alexnet.parameters(), lr=5e-3)
+optimizer = optim.Adam(alexnet.parameters(), lr=5e-4)
 fit(alexnet, optimizer, train=Loader_train, val=Loader_val)
 alexnet.predict(mode='test', loader=Loader_test)
