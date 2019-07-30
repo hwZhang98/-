@@ -138,6 +138,6 @@ def fit(model=None, optimizer=None, learning_rate=1e-3, epochs=10, train=Loader_
 # vgg.predict(mode='test',x=test_images,y=test_labels)
 
 alexnet = Alexnet_model()
-optimizer = optim.Adam(alexnet.parameters(), lr=5e-4)
+optimizer = optim.Adam(alexnet.parameters(), lr=5e-4)   # 这里对正确率很敏感！高了反而就不学习了
 fit(alexnet, optimizer, train=Loader_train, val=Loader_val)
 alexnet.predict(mode='test', loader=Loader_test)
