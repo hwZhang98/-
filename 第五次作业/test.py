@@ -1,5 +1,5 @@
 import torchvision.models as models
-import numpy as np
+# 查看部分模型 的结构
 resnet18 = models.resnet18()
 alexnet = models.alexnet()
 vgg16 = models.vgg16()

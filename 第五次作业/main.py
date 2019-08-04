@@ -1,9 +1,5 @@
-from data_process import get_data
-import numpy as np
-import matplotlib.pyplot as plt
 import torch.optim as optim
 import torchvision.transforms as T
-import torchvision.transforms.functional as TF
 import torch.nn.functional as F
 import torch.nn as nn
 import torchvision.models as models
@@ -12,85 +8,91 @@ import torchvision
 import torch.utils.data
 from torch.utils.data import sampler
 
-transform = T.Compose([
-    T.Resize(224),
-    T.ToTensor()
-])
-train_data = torchvision.datasets.MNIST(root=r'C:\Users\Administrator\Anaconda3\Lib\site-packages\torchvision\datasets',download=True,train=True, transform=transform)
-# 地址前加r是因为\u对python来说是特殊字符，所以加一个r代表原生字符
-test_data = torchvision.datasets.MNIST(root=r'C:\Users\Administrator\Anaconda3\Lib\site-packages\torchvision\datasets',download=True,train=False, transform=transform)
-# 每一个数据都是元组，第一个位置为图片，第二个位置为标签
-Loader_train = torch.utils.data.DataLoader(train_data, batch_size=100,
-                                           sampler=sampler.SubsetRandomSampler(range(10000)))
-Loader_val = torch.utils.data.DataLoader(train_data, batch_size=100,
-                                         sampler=sampler.SubsetRandomSampler(range(10000, 20000)))
-Loader_test = torch.utils.data.DataLoader(test_data, batch_size=100,
-                                          sampler=sampler.SubsetRandomSampler(range(5000)))
-data_test_image,data_test_label = train_data.data,train_data.targets
 
-# def big_image(input_tensor=None, out_size=None):
-#     '''
-#     对图片进行放缩，输入张量默认为3为（N,H,W），输出张量为三维（N,OUT_SIZE,OUT_SIZE）
-#     默认只处理正方形图片
-#     :param input_tensor: 输入张量
-#     :param out_size: 输出尺寸
-#     :return:
-#     '''
-#     N = input_tensor.size(0)
-#     tem_1 = np.zeros((N, out_size, out_size))
-#     tem_2 = torch.zeros((N, out_size, out_size))
-#     for i in range(N):
-#         tem_1[i] = cv2.resize(input_tensor[i].numpy(), (224, 224))
-#         tem_2[i] = torch.tensor(tem_1[i])
-#     return tem_2
-#
-#
-def add_axisANDchannl(t_1):
-    '''
-    默认在第二个位置增加一个维度，比如（N,H,W）变为（N,1,H,W）
-    再复制通道，变为（N,3,H,W）
-    :param t_1:
-    :param t_2:
-    :param t_3:
-    :return:
-    '''
-    #t_1 = torch.unsqueeze(t_1, 1)
-    print(t_1.size())
-    t_1 = t_1.repeat(t_1.size(0), 3, t_1.size(2), t_1.size(3))
-    return t_1
+class HyperParameter:  # 超参类
+    def __init__(self, lr, minibatch, epochs, mode, show_every):
+        self.Learningrate = lr  # 学习率
+        self.Minibatch = minibatch  # 每批个数
+        self.Epochs = epochs  # 迭代次数
+        self.Mode = mode  # 模式 train or test
+        self.show, self.show_every = show_every
+
+    def __str__(self):
+        assert self.Mode not in ['train', 'val'], 'input the right mode in "train" or "test"'
+        return 'Learningrate：', self.Learningrate, '  Minibatche', self.Minibatche, '/n', \
+               '  Epochs', self.Epochs, '  Mode', self.Mode
 
 
-class Flatten(nn.Module):
+class Dataloader(torch.utils.data.DataLoader):  # 为DataLoader 写入一个函数，方便观察传入的数据
+    def get_one(self, idex):
+        data = self.data[idex]
+        label = self.label[idex]
+        return data, label
+
+
+class Flatten(nn.Module):  # 展平操作
     def forward(self, x):
         return x.view(x.size(0), -1)
 
 
-class Alexnet_model(nn.Module):
+class CNN_model(nn.Module):
     def __init__(self):
-        super(Alexnet_model, self).__init__()
-        model = models.alexnet(pretrained=True)
-        #model = models.squeezenet1_0()
-        model.features[0] = nn.Conv2d(1, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2))
-        model.classifier[6] = nn.Linear(4096,10,bias=True)
+        super(CNN_model, self).__init__()
+        # model = models.alexnet(pretrained=True)
+        # model.features[0] = nn.Conv2d(1, 64, kernel_size=(11,11), stride=(4, 4), padding=(2, 2))
+        # model.classifier[6] = nn.Linear(4096,10)
+        # self.model = nn.Sequential(
+        #     model,
+        # )
+        # self.model = nn.Sequential(
+        #     nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1),
+        #     nn.BatchNorm2d(32),
+        #     nn.ReLU(inplace=True),
+        #     nn.AvgPool2d(kernel_size=2, stride=2),
+        #     nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1),
+        #     nn.BatchNorm2d(16),
+        #     nn.ReLU(inplace=True),
+        #     nn.AvgPool2d(kernel_size=2, stride=2),
+        #     nn.Dropout(p=0.5),
+        #     Flatten(),
+        #     nn.Linear(56 * 56 * 16, 10, bias=True)
+        # )
+        model = models.resnet18(pretrained=True)
+        model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        model.fc = nn.Linear(in_features=512, out_features=10, bias=True)
         self.model = nn.Sequential(
-            model,
-            # nn.Conv2d(3, 32, kernel_size=3, stride=1,padding=1),
-            # nn.BatchNorm2d(32),
-            # nn.ReLU(inplace=True),
-            # nn.AvgPool2d(kernel_size=2, stride=2),
-            # nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(16),
-            # nn.ReLU(inplace=True),
-            # nn.AvgPool2d(kernel_size=2, stride=2),
-            # nn.Dropout(p=0.5),
-            # Flatten(),
-            # nn.Linear(7 * 7 * 16, 10, bias=True)
-
-            # nn.Linear(1000, 300, bias=True),
-            # nn.ReLU(inplace=True),
-            # nn.Dropout(p=0.5),
-            # nn.Linear(300, 50, bias=True),
+            model
         )
+torch.stack()
+
+class Fit:
+    def __init__(self, model=None, HP=None, train_data=None, val_data=None):
+        self.model = model
+        self.learningrate = HP.Learningrate
+        self.epochs = HP.Epochs
+        self.mode = HP.Mode
+        self.put = HP.show
+        self.put_every = HP.show_every
+        self.train_data = train_data
+        self.val_data = val_data
+        self.optimizer = optim.Adam(cnnmodel.model.parameters(), lr=self.learningrate)
+
+    def train(self):
+        self.model.train()  # 进入训练模式
+        for i in range(self.epochs):
+            for j, (x, y) in enumerate(self.train_data):
+                score = self.model(x)
+                loss = F.cross_entropy(score, y.to(torch.long), reduction='sum')  # 计算损失  这里的LOSS可不是一个值
+                self.optimizer.zero_grad()  # 梯度清零  不清零的话会增加内存占用
+                loss.backward()  # 进行反向传播
+                self.optimizer.step()  # 更新权重
+                if j % self.put_every == 0:
+                    print('OK')
+            if self.put:  # 每迭代1次 输出一次当前的损失
+                print('Iteration %d, loss = %.4f' % (i, loss.item()))
+                self.predict(loader=self.train_data)  # 调用检查正确率的函数
+                self.predict(mode='val', loader=self.val_data)  # 调用检查正确率的函数,验证集
+                print()
 
     def predict(self, mode='train', loader=None):
         if mode == 'test':
@@ -112,32 +114,29 @@ class Alexnet_model(nn.Module):
             print('Got %d / %d correct (%.2f)' % (num_correct, num_samples, 100 * acc))
 
 
-def fit(model=None, optimizer=None, learning_rate=1e-3, epochs=10, train=Loader_train,
-        val=Loader_val, look=True):
-    model.train()  # 进入训练模式
-    for i in range(epochs):
-        j = 0
-        for x, y in train:
-            j += 1
-            # x = add_axisANDchannl(x)
-            score = alexnet.model(x)
-            loss = F.cross_entropy(score, y.to(torch.long))  # 计算损失  这里的LOSS可不是一个值
-            optimizer.zero_grad()  # 梯度清零  不清零的话会增加内存占用
-            loss.backward()  # 进行反向传播
-            optimizer.step()  # 更新权重
-            if j % 5 == 0:
-                print('OK')
-        if look:  # 每迭代1次 输出一次当前的损失
-            print('Iteration %d, loss = %.4f' % (i, loss.item()))
-            alexnet.predict(loader=train)  # 调用检查正确率的函数
-            alexnet.predict(mode='val', loader=val)  # 调用检查正确率的函数,验证集
-            print()
+# 定义超参数
+HP = HyperParameter(lr=0.0001, minibatch=10, epochs=10, mode='train', show_every=(True, 5))
 
+# 下面对数据进行导入和预处理
+transform = T.Compose([  # 对每张图片的操作
+    T.Resize(224),
+    T.ToTensor()
+])
+train_data = torchvision.datasets.FashionMNIST(
+    root=r'C:\Users\Administrator\Anaconda3\Lib\site-packages\torchvision\datasets',
+    download=True, train=True, transform=transform)
+# 地址前加r是因为\u对python来说是特殊字符，所以加一个r代表原生字符
+test_data = torchvision.datasets.FashionMNIST(
+    root=r'C:\Users\Administrator\Anaconda3\Lib\site-packages\torchvision\datasets',
+    download=True, train=False, transform=transform)
+# 对数据进行打包，分批
+Loader_train = Dataloader(dataset=train_data, batch_size=HP.Minibatch, sampler=sampler.SubsetRandomSampler(range(500)))
+Loader_val = Dataloader(dataset=train_data, batch_size=HP.Minibatch,
+                        sampler=sampler.SubsetRandomSampler(range(500, 700)))
+Loader_test = Dataloader(dataset=test_data, batch_size=HP.Minibatch, sampler=sampler.SubsetRandomSampler(range(500)))
 
-# vgg.fit(x_train=train_images,y_train=train_labels,x_val=val_images,y_val=val_labels,learning_rate=3e-3,epochs=5)
-# vgg.predict(mode='test',x=test_images,y=test_labels)
-
-alexnet = Alexnet_model()
-optimizer = optim.Adam(alexnet.parameters(), lr=5e-4)   # 这里对正确率很敏感！高了反而就不学习了
-fit(alexnet, optimizer, train=Loader_train, val=Loader_val)
-alexnet.predict(mode='test', loader=Loader_test)
+# 训练模型
+cnnmodel = CNN_model()
+fit = Fit(model=cnnmodel.model, HP=HP, train_data=Loader_train, val_data=Loader_val)
+fit.train()
+fit.predict(mode='test', loader=Loader_test)
