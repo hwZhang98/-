@@ -63,7 +63,7 @@ class CNN_model(nn.Module):
         self.model = nn.Sequential(
             model
         )
-torch.stack()
+
 
 class Fit:
     def __init__(self, model=None, HP=None, train_data=None, val_data=None):
